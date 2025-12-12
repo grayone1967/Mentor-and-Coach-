@@ -1,0 +1,7 @@
+{
+  "name": "Crextio - Practitioner Admin",
+  "description": "A high-fidelity, dual-tier administrative system for coaching practitioners with AI-powered course generation and client monitoring.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
