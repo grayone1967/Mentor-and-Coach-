@@ -64,7 +64,7 @@ const App: React.FC = () => {
   const loadMaterials = async (userId: string) => {
     try {
       const data = await materialService.getMaterials(userId);
-      const mappedMaterials: Material[] = data.map(m => ({
+      const mappedMaterials: Material[] = (data as any[]).map(m => ({
         id: m.id,
         title: m.title,
         description: m.description || '',

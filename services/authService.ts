@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { Database } from '../types/schema';
 
@@ -84,7 +85,7 @@ export const authService = {
       // If session exists immediately, try to init data
       await this.initializePractitionerData(authData.user.id, {
         fullName: data.fullName,
-        businessName: data.businessName,
+        business_name: data.businessName,
         niche: data.niche,
         email: data.email
       });
@@ -121,7 +122,7 @@ export const authService = {
       .single();
 
     // PGRST116 means no rows returned (which is what we want to catch)
-    if (!profile || (error && error.code === 'PGRST116')) {
+    if (!profile || (error && (error as any).code === 'PGRST116')) {
       console.log('Profile missing, initializing from metadata...');
       const { full_name, business_name, niche } = user.user_metadata || {};
       
@@ -148,32 +149,32 @@ export const authService = {
       
       if (profile) {
         // Update existing profile (created by trigger)
-        const { error: updateError } = await supabase.from('profiles').update({
+        const { error: updateError } = await (supabase.from('profiles') as any).update({
           full_name: data.fullName,
           business_name: data.businessName,
           niche: data.niche
-        }).eq('id', userId);
+        } as any).eq('id', userId);
         
         if (updateError) console.error('Profile update failed:', updateError);
       } else {
         // Insert new profile
-        const { error: insertError } = await supabase.from('profiles').insert({
+        const { error: insertError } = await (supabase.from('profiles') as any).insert({
           id: userId,
           role: 'practitioner',
           full_name: data.fullName,
           email: data.email,
           business_name: data.businessName,
           niche: data.niche
-        });
+        } as any);
         
         if (insertError) {
              console.error('Profile insert failed:', insertError);
              // Fallback to update if insert failed due to race condition
-             await supabase.from('profiles').update({
+             await (supabase.from('profiles') as any).update({
                 full_name: data.fullName,
                 business_name: data.businessName,
                 niche: data.niche
-             }).eq('id', userId);
+             } as any).eq('id', userId);
         }
       }
 
@@ -185,12 +186,12 @@ export const authService = {
         .single();
 
       if (!existingApp) {
-         const { error: appError } = await supabase
-           .from('practitioner_applications')
+         const { error: appError } = await (supabase
+           .from('practitioner_applications') as any)
            .insert({
               practitioner_id: userId,
               status: 'pending'
-           });
+           } as any);
          if (appError) console.error('Application creation failed:', appError);
       }
   },
@@ -234,15 +235,15 @@ export const authService = {
      instagramHandle?: string;
   }) {
     // Update Profile
-    const { error: profileError } = await supabase
-      .from('profiles')
+    const { error: profileError } = await (supabase
+      .from('profiles') as any)
       .update({
         bio: updates.bio,
         avatar_url: updates.avatarUrl,
         linkedin_url: updates.linkedinUrl,
         instagram_handle: updates.instagramHandle,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', userId);
 
     if (profileError) {
@@ -251,9 +252,9 @@ export const authService = {
     }
 
     // Mark Application as Completed
-    const { error: appError } = await supabase
-      .from('practitioner_applications')
-      .update({ status: 'completed' })
+    const { error: appError } = await (supabase
+      .from('practitioner_applications') as any)
+      .update({ status: 'completed' } as any)
       .eq('practitioner_id', userId);
 
     if (appError) {
@@ -266,13 +267,13 @@ export const authService = {
    * Check Application Status
    */
   async getPractitionerApplicationStatus(userId: string): Promise<string | null> {
-    const { data, error } = await supabase
-      .from('practitioner_applications')
+    const { data, error } = await (supabase
+      .from('practitioner_applications') as any)
       .select('status')
       .eq('practitioner_id', userId)
       .single();
     
     if (error) return null;
-    return data.status;
+    return data ? data.status : null;
   }
 };

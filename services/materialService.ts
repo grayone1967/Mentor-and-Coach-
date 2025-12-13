@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { Database } from '../types/schema';
 
@@ -43,7 +44,7 @@ export const materialService = {
   async createMaterial(materialData: MaterialInsert) {
     const { data, error } = await supabase
       .from('materials')
-      .insert(materialData)
+      .insert(materialData as any)
       .select()
       .single();
 
@@ -69,6 +70,6 @@ export const materialService = {
       throw new Error(`Error fetching materials: ${error.message}`);
     }
 
-    return data;
+    return data || [];
   }
 };

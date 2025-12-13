@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { 
   Search, 
@@ -188,7 +187,7 @@ const LibraryManager: React.FC<LibraryManagerProps> = ({ materials, setMaterials
 
         // 3. Update UI State (Map back DB record to UI Model if needed, or use local data)
         const newMaterial: Material = {
-            id: dbRecord?.id || materialUuid,
+            id: dbRecord ? (dbRecord as any).id : materialUuid,
             title: uploadData.title || 'Untitled',
             description: uploadData.description,
             type: uploadData.type || 'Audio',

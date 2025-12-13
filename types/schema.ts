@@ -94,6 +94,7 @@ export interface Database {
           status: string | null
           creation_stage: number
           created_at: string
+          tags: string[] | null
         }
         Insert: {
           id?: string
@@ -108,6 +109,7 @@ export interface Database {
           status?: string | null
           creation_stage?: number
           created_at?: string
+          tags?: string[] | null
         }
         Update: {
           id?: string
@@ -122,6 +124,7 @@ export interface Database {
           status?: string | null
           creation_stage?: number
           created_at?: string
+          tags?: string[] | null
         }
       }
       course_weeks: {
@@ -276,6 +279,28 @@ export interface Database {
           example_phrases: string[] | null
           created_at: string
         }
+        Insert: {
+          id?: string
+          practitioner_id: string
+          name: string
+          description?: string | null
+          tone_tags?: string[] | null
+          response_style?: string | null
+          system_prompt?: string | null
+          example_phrases?: string[] | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          practitioner_id?: string
+          name?: string
+          description?: string | null
+          tone_tags?: string[] | null
+          response_style?: string | null
+          system_prompt?: string | null
+          example_phrases?: string[] | null
+          created_at?: string
+        }
       }
       course_personas: {
         Row: {
@@ -288,6 +313,12 @@ export interface Database {
           id?: string
           course_id: string
           persona_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          course_id?: string
+          persona_id?: string
           created_at?: string
         }
         Delete: {
@@ -303,6 +334,18 @@ export interface Database {
           client_id: string
           enrolled_at: string
         }
+        Insert: {
+          id?: string
+          course_id: string
+          client_id: string
+          enrolled_at?: string
+        }
+        Update: {
+          id?: string
+          course_id?: string
+          client_id?: string
+          enrolled_at?: string
+        }
       }
       journal_entries: {
         Row: {
@@ -312,6 +355,22 @@ export interface Database {
           content: string | null
           mood: number | null
           created_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          task_id?: string | null
+          content?: string | null
+          mood?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          task_id?: string | null
+          content?: string | null
+          mood?: number | null
+          created_at?: string
         }
       }
       messages: {
@@ -323,6 +382,24 @@ export interface Database {
           content: string | null
           attachments: string[] | null
           created_at: string
+        }
+        Insert: {
+          id?: string
+          sender_id: string
+          recipient_id: string
+          course_id: string
+          content?: string | null
+          attachments?: string[] | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          sender_id?: string
+          recipient_id?: string
+          course_id?: string
+          content?: string | null
+          attachments?: string[] | null
+          created_at?: string
         }
       }
       red_flags: {
@@ -336,7 +413,39 @@ export interface Database {
           resolved: boolean | null
           created_at: string
         }
+        Insert: {
+          id?: string
+          client_id: string
+          course_id: string
+          alert_type?: string | null
+          severity?: 'critical' | 'warning' | null
+          context?: string | null
+          resolved?: boolean | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          course_id?: string
+          alert_type?: string | null
+          severity?: 'critical' | 'warning' | null
+          context?: string | null
+          resolved?: boolean | null
+          created_at?: string
+        }
       }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }
