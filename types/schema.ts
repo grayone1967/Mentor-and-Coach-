@@ -88,13 +88,17 @@ export interface Database {
           description: string | null
           category: string | null
           duration_weeks: number | null
-          pricing_model: 'free' | 'one_time' | 'monthly' | null
+          pricing_model: 'free' | 'one_time' | 'subscription' | null
           price: number | null
           cover_image_url: string | null
           status: string | null
           creation_stage: number
           created_at: string
           tags: string[] | null
+          trial_enabled: boolean | null
+          trial_days: number | null
+          max_enrollments: number | null
+          start_date: string | null
         }
         Insert: {
           id?: string
@@ -103,13 +107,17 @@ export interface Database {
           description?: string | null
           category?: string | null
           duration_weeks?: number | null
-          pricing_model?: 'free' | 'one_time' | 'monthly' | null
+          pricing_model?: 'free' | 'one_time' | 'subscription' | null
           price?: number | null
           cover_image_url?: string | null
           status?: string | null
           creation_stage?: number
           created_at?: string
           tags?: string[] | null
+          trial_enabled?: boolean | null
+          trial_days?: number | null
+          max_enrollments?: number | null
+          start_date?: string | null
         }
         Update: {
           id?: string
@@ -118,13 +126,17 @@ export interface Database {
           description?: string | null
           category?: string | null
           duration_weeks?: number | null
-          pricing_model?: 'free' | 'one_time' | 'monthly' | null
+          pricing_model?: 'free' | 'one_time' | 'subscription' | null
           price?: number | null
           cover_image_url?: string | null
           status?: string | null
           creation_stage?: number
           created_at?: string
           tags?: string[] | null
+          trial_enabled?: boolean | null
+          trial_days?: number | null
+          max_enrollments?: number | null
+          start_date?: string | null
         }
       }
       course_weeks: {
@@ -161,7 +173,7 @@ export interface Database {
           id: string
           week_id: string
           task_type: string | null
-          title: string
+          task_title: string
           description: string | null
           task_objective: string | null
           task_context: string | null
@@ -173,7 +185,7 @@ export interface Database {
           id?: string
           week_id: string
           task_type?: string | null
-          title: string
+          task_title: string
           description?: string | null
           task_objective?: string | null
           task_context?: string | null
@@ -185,7 +197,7 @@ export interface Database {
           id?: string
           week_id?: string
           task_type?: string | null
-          title?: string
+          task_title?: string
           description?: string | null
           task_objective?: string | null
           task_context?: string | null

@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { Course, Week, Task, Persona, TaskType } from '../types';
 
@@ -56,7 +57,7 @@ export const courseService = {
       // Map DB pricing model to UI model
       let uiPricingModel: 'Free' | 'OneTime' | 'Subscription' = 'Free';
       if (dbCourse.pricing_model === 'one_time') uiPricingModel = 'OneTime';
-      else if (dbCourse.pricing_model === 'monthly') uiPricingModel = 'Subscription';
+      else if (dbCourse.pricing_model === 'subscription') uiPricingModel = 'Subscription';
 
       // Map status
       let uiStatus: 'Published' | 'Draft' | 'Archived' = 'Draft';
@@ -105,7 +106,7 @@ export const courseService = {
           isExpanded: false,
           tasks: w.tasks.map((t: any) => ({
             id: t.id,
-            title: t.title,
+            title: t.task_title, // Map task_title from DB to UI title
             type: mapDbTaskTypeToUi(t.task_type), // Map DB -> UI
             description: t.description || '',
             objective: t.task_objective || '',
@@ -258,7 +259,7 @@ export const courseService = {
       if (week.tasks && week.tasks.length > 0) {
         const tasksPayload = week.tasks.map(t => ({
           week_id: savedWeek.id,
-          title: t.title,
+          task_title: t.title, // Map UI title to task_title column
           task_type: mapUiTaskTypeToDb(t.type), // Map DB snake_case
           description: t.description,
           task_objective: t.objective,
@@ -341,7 +342,7 @@ export const courseService = {
   async publishCourse(courseId: string, settings: any) {
     let dbModel = 'free';
     if (settings.pricingModel === 'OneTime') dbModel = 'one_time';
-    else if (settings.pricingModel === 'Subscription') dbModel = 'monthly';
+    else if (settings.pricingModel === 'Subscription') dbModel = 'subscription';
 
     const status = settings.status === 'Published' ? 'published' : 'draft';
 
@@ -350,12 +351,10 @@ export const courseService = {
         creation_stage: 6,
         pricing_model: dbModel,
         price: isNaN(Number(settings.price)) ? 0 : Number(settings.price),
-        // Using loose casting for extended fields not in initial schema
-        // Note: These fields should exist in the schema, but we cast to ensure compatibility if they are newly added
-        // trial_enabled: settings.trialEnabled,
-        // trial_days: isNaN(Number(settings.trialDays)) ? 0 : Number(settings.trialDays),
-        // max_enrollments: isNaN(Number(settings.maxEnrollments)) ? 0 : Number(settings.maxEnrollments),
-        // start_date: settings.startDate || null,
+        trial_enabled: settings.trialEnabled,
+        trial_days: isNaN(Number(settings.trialDays)) ? 0 : Number(settings.trialDays),
+        max_enrollments: isNaN(Number(settings.maxEnrollments)) ? 0 : Number(settings.maxEnrollments),
+        start_date: settings.startDate || null,
     };
 
     const { error } = await (supabase
