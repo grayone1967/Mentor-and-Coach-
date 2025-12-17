@@ -324,8 +324,10 @@ const TaskEditorModal: React.FC<{
 
 const Stage1Details: React.FC<{ 
     availableMaterials: Material[], 
-    onComplete: () => void 
-}> = ({ availableMaterials, onComplete }) => {
+    onComplete: () => void,
+    courseId?: string | null,
+    initialData?: Course | null
+}> = ({ availableMaterials, onComplete, courseId, initialData }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState<{
         title: string;
@@ -335,17 +337,31 @@ const Stage1Details: React.FC<{
         image: string;
         tags: string[];
     }>({
-        title: '',
-        description: '',
-        category: 'Mindset',
-        durationValue: 4,
-        image: '',
-        tags: []
+        title: initialData?.title || '',
+        description: initialData?.description || '',
+        category: initialData?.category || 'Mindset',
+        durationValue: initialData?.durationValue || 4,
+        image: initialData?.image || '',
+        tags: initialData?.tags || []
     });
     
     const [tagInput, setTagInput] = useState('');
     const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
     const [materialSearch, setMaterialSearch] = useState('');
+
+    useEffect(() => {
+        if (courseId && initialData) {
+            // Already initialized via useState, but good to be safe if props change
+            setFormData({
+                title: initialData.title,
+                description: initialData.description || '',
+                category: initialData.category,
+                durationValue: initialData.durationValue || 4,
+                image: initialData.image,
+                tags: initialData.tags || []
+            });
+        }
+    }, [courseId, initialData]);
 
     const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && tagInput.trim()) {
@@ -373,23 +389,31 @@ const Stage1Details: React.FC<{
         m.category.some(c => c.toLowerCase().includes(materialSearch.toLowerCase()))
     );
 
-    const handleCreate = async () => {
+    const handleAction = async () => {
         if (!formData.title) return alert("Please enter a course title");
         
         setIsLoading(true);
         try {
             const session = await authService.getSession();
             if (session?.user) {
-                await courseService.createCourse(
-                    session.user.id, 
-                    { ...formData, durationUnit: 'Weeks' },
-                    Array.from(selectedMaterials)
-                );
+                if (courseId) {
+                    // UPDATE MODE
+                    await courseService.updateCourseDetails(courseId, { ...formData, durationUnit: 'Weeks' });
+                    // Note: Materials updating logic isn't in updateCourseDetails, assumed handled in Stage 4 for existing courses
+                    alert("Course details updated.");
+                } else {
+                    // CREATE MODE
+                    await courseService.createCourse(
+                        session.user.id, 
+                        { ...formData, durationUnit: 'Weeks' },
+                        Array.from(selectedMaterials)
+                    );
+                }
                 onComplete();
             }
         } catch (e: any) { 
             console.error(e); 
-            alert(`Failed to create course: ${e.message}`); 
+            alert(`Failed to ${courseId ? 'update' : 'create'} course: ${e.message}`); 
         } finally { 
             setIsLoading(false); 
         }
@@ -401,7 +425,7 @@ const Stage1Details: React.FC<{
                  <h3 className="font-bold text-2xl mb-2 flex items-center gap-2">
                      <FileText size={24} className="text-yellow-400"/> Course Essentials
                  </h3>
-                 <p className="text-gray-300 opacity-90">Start by defining the core identity of your new course.</p>
+                 <p className="text-gray-300 opacity-90">{courseId ? 'Edit the core identity of your course.' : 'Start by defining the core identity of your new course.'}</p>
             </div>
 
             <div className="bg-white p-8 rounded-[32px] border border-stone-100 shadow-sm space-y-6">
@@ -472,73 +496,75 @@ const Stage1Details: React.FC<{
                 </div>
             </div>
 
-            {/* NEW: Materials Selector */}
-            <div className="bg-white p-8 rounded-[32px] border border-stone-100 shadow-sm space-y-6">
-                <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                        <FolderOpen size={20} className="text-blue-500"/> Attach Core Materials
-                    </h3>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input 
-                            value={materialSearch}
-                            onChange={(e) => setMaterialSearch(e.target.value)}
-                            type="text" 
-                            placeholder="Search library..." 
-                            className="pl-10 pr-4 py-2 rounded-full bg-stone-50 border-none text-sm focus:ring-2 focus:ring-yellow-400 outline-none w-48"
-                        />
-                    </div>
-                </div>
-                
-                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                    {filteredMaterials.length > 0 ? filteredMaterials.map(mat => (
-                        <div 
-                            key={mat.id} 
-                            onClick={() => toggleMaterialSelection(mat.id)}
-                            className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                                selectedMaterials.has(mat.id) 
-                                ? 'border-yellow-400 bg-yellow-50' 
-                                : 'border-stone-100 hover:border-stone-200'
-                            }`}
-                        >
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                selectedMaterials.has(mat.id) ? 'border-yellow-500 bg-yellow-400' : 'border-gray-300 bg-white'
-                            }`}>
-                                {selectedMaterials.has(mat.id) && <CheckCircle size={14} className="text-gray-900"/>}
-                            </div>
-                            
-                            <div className={`p-2 rounded-lg ${
-                                mat.type === 'Audio' ? 'bg-blue-50 text-blue-600' :
-                                mat.type === 'Video' ? 'bg-purple-50 text-purple-600' :
-                                'bg-gray-100 text-gray-600'
-                            }`}>
-                                {mat.type === 'Audio' ? <Music size={16}/> : mat.type === 'Video' ? <Video size={16}/> : <FileText size={16}/>}
-                            </div>
-                            
-                            <div className="flex-1">
-                                <p className="font-bold text-gray-900 text-sm">{mat.title}</p>
-                                <p className="text-xs text-gray-500">{mat.category.join(', ')}</p>
-                            </div>
-                            
-                            <span className="text-[10px] font-bold uppercase tracking-wider bg-white px-2 py-1 rounded border border-gray-100 text-gray-500">
-                                {mat.type}
-                            </span>
+            {/* Materials Selector - Only show in CREATE mode to keep edit clean (or if needed) */}
+            {!courseId && (
+                <div className="bg-white p-8 rounded-[32px] border border-stone-100 shadow-sm space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                            <FolderOpen size={20} className="text-blue-500"/> Attach Core Materials
+                        </h3>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input 
+                                value={materialSearch}
+                                onChange={(e) => setMaterialSearch(e.target.value)}
+                                type="text" 
+                                placeholder="Search library..." 
+                                className="pl-10 pr-4 py-2 rounded-full bg-stone-50 border-none text-sm focus:ring-2 focus:ring-yellow-400 outline-none w-48"
+                            />
                         </div>
-                    )) : (
-                        <div className="text-center py-8 text-gray-400 text-sm">No materials found.</div>
-                    )}
+                    </div>
+                    
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                        {filteredMaterials.length > 0 ? filteredMaterials.map(mat => (
+                            <div 
+                                key={mat.id} 
+                                onClick={() => toggleMaterialSelection(mat.id)}
+                                className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                                    selectedMaterials.has(mat.id) 
+                                    ? 'border-yellow-400 bg-yellow-50' 
+                                    : 'border-stone-100 hover:border-stone-200'
+                                }`}
+                            >
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                    selectedMaterials.has(mat.id) ? 'border-yellow-500 bg-yellow-400' : 'border-gray-300 bg-white'
+                                }`}>
+                                    {selectedMaterials.has(mat.id) && <CheckCircle size={14} className="text-gray-900"/>}
+                                </div>
+                                
+                                <div className={`p-2 rounded-lg ${
+                                    mat.type === 'Audio' ? 'bg-blue-50 text-blue-600' :
+                                    mat.type === 'Video' ? 'bg-purple-50 text-purple-600' :
+                                    'bg-gray-100 text-gray-600'
+                                }`}>
+                                    {mat.type === 'Audio' ? <Music size={16}/> : mat.type === 'Video' ? <Video size={16}/> : <FileText size={16}/>}
+                                </div>
+                                
+                                <div className="flex-1">
+                                    <p className="font-bold text-gray-900 text-sm">{mat.title}</p>
+                                    <p className="text-xs text-gray-500">{mat.category.join(', ')}</p>
+                                </div>
+                                
+                                <span className="text-[10px] font-bold uppercase tracking-wider bg-white px-2 py-1 rounded border border-gray-100 text-gray-500">
+                                    {mat.type}
+                                </span>
+                            </div>
+                        )) : (
+                            <div className="text-center py-8 text-gray-400 text-sm">No materials found.</div>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">Selected materials will be available in the course structure editor.</p>
                 </div>
-                <p className="text-xs text-gray-400 text-center">Selected materials will be available in the course structure editor.</p>
-            </div>
+            )}
 
             <div className="flex justify-end pt-4">
                 <button 
-                    onClick={handleCreate}
+                    onClick={handleAction}
                     disabled={isLoading}
                     className="bg-yellow-400 text-gray-900 px-8 py-3 rounded-xl font-bold hover:bg-yellow-300 transition-colors shadow-lg flex items-center gap-2"
                 >
                     {isLoading ? <Loader2 className="animate-spin" size={20}/> : <ArrowRight size={20}/>}
-                    {isLoading ? 'Creating...' : 'Create & Continue'}
+                    {isLoading ? (courseId ? 'Saving...' : 'Creating...') : (courseId ? 'Save Changes' : 'Create & Continue')}
                 </button>
             </div>
         </div>
@@ -819,7 +845,8 @@ const Stage3Structure: React.FC<{
     courseId: string;
     onComplete: () => void;
     availableMaterials?: Material[];
-}> = ({ courseId, onComplete, availableMaterials = [] }) => {
+    isPublished?: boolean;
+}> = ({ courseId, onComplete, availableMaterials = [], isPublished }) => {
     const [weeks, setWeeks] = useState<Week[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
@@ -865,8 +892,11 @@ const Stage3Structure: React.FC<{
         setLoading(true);
         try {
             await courseService.saveCourseStructure(courseId, weeks);
-            await courseService.updateCourseStage(courseId, 4);
+            if (!isPublished) {
+                await courseService.updateCourseStage(courseId, 4);
+            }
             onComplete();
+            if (isPublished) alert("Structure saved.");
         } catch (e) {
             console.error(e);
             alert("Failed to save structure");
@@ -973,7 +1003,7 @@ const Stage3Structure: React.FC<{
                         <Plus size={16}/> Add Week
                     </button>
                     <button onClick={handleSaveAll} className="bg-gray-900 text-white px-6 py-2 rounded-xl font-bold hover:bg-black transition-colors flex items-center gap-2 shadow-lg">
-                        <Save size={18}/> Save & Continue
+                        <Save size={18}/> {isPublished ? 'Save Changes' : 'Save & Continue'}
                     </button>
                 </div>
             </div>
@@ -1083,17 +1113,17 @@ const Stage3Structure: React.FC<{
 
 // --- STAGE 4: MATERIALS ---
 
-const Stage4Materials: React.FC<{ courseId: string; availableMaterials: Material[]; onComplete: () => void; }> = ({ courseId, availableMaterials, onComplete }) => {
+const Stage4Materials: React.FC<{ courseId: string; availableMaterials: Material[]; onComplete: () => void; isPublished?: boolean }> = ({ courseId, availableMaterials, onComplete, isPublished }) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
     useEffect(() => { courseService.getCourseMaterials(courseId).then(ids => setSelectedIds(new Set(ids))); }, [courseId]);
     const toggleSelection = (id: string) => { const newSet = new Set(selectedIds); if (newSet.has(id)) newSet.delete(id); else newSet.add(id); setSelectedIds(newSet); };
-    const handleSave = async () => { setIsSaving(true); try { for (const mat of availableMaterials) { await courseService.toggleCourseMaterial(courseId, mat.id, selectedIds.has(mat.id)); } await courseService.updateCourseStage(courseId, 5); onComplete(); } catch (e) { console.error(e); } finally { setIsSaving(false); } };
+    const handleSave = async () => { setIsSaving(true); try { for (const mat of availableMaterials) { await courseService.toggleCourseMaterial(courseId, mat.id, selectedIds.has(mat.id)); } if(!isPublished) await courseService.updateCourseStage(courseId, 5); onComplete(); if(isPublished) alert("Materials updated."); } catch (e) { console.error(e); } finally { setIsSaving(false); } };
     return (
         <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
             <div className="flex justify-between items-center">
                 <div><h2 className="text-3xl font-bold text-gray-900">Attach Materials</h2><p className="text-gray-500">Select resources from your library to include in this course.</p></div>
-                <button onClick={handleSave} disabled={isSaving} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors">{isSaving ? 'Saving...' : 'Save & Continue'}</button>
+                <button onClick={handleSave} disabled={isSaving} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors">{isSaving ? 'Saving...' : (isPublished ? 'Save Changes' : 'Save & Continue')}</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {availableMaterials.map(mat => (
@@ -1113,7 +1143,7 @@ const Stage4Materials: React.FC<{ courseId: string; availableMaterials: Material
 
 // --- STAGE 5: PERSONAS ---
 
-const Stage5Personas: React.FC<{ courseId: string; onComplete: () => void; }> = ({ courseId, onComplete }) => {
+const Stage5Personas: React.FC<{ courseId: string; onComplete: () => void; isPublished?: boolean }> = ({ courseId, onComplete, isPublished }) => {
     const [personas, setPersonas] = useState<Persona[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
@@ -1171,8 +1201,9 @@ const Stage5Personas: React.FC<{ courseId: string; onComplete: () => void; }> = 
     const handleContinue = async () => {
         setIsSaving(true);
         try {
-            await courseService.updateCourseStage(courseId, 6);
+            if(!isPublished) await courseService.updateCourseStage(courseId, 6);
             onComplete();
+            if(isPublished) alert("Coaches updated.");
         } catch (e) {
             console.error(e);
             alert("Failed to save progress.");
@@ -1199,7 +1230,7 @@ const Stage5Personas: React.FC<{ courseId: string; onComplete: () => void; }> = 
                         disabled={isSaving} 
                         className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg disabled:opacity-50"
                     >
-                        {isSaving ? 'Saving...' : 'Save & Continue'}
+                        {isSaving ? 'Saving...' : (isPublished ? 'Save Changes' : 'Save & Continue')}
                     </button>
                 </div>
             </div>
@@ -1272,11 +1303,11 @@ const Stage5Personas: React.FC<{ courseId: string; onComplete: () => void; }> = 
 
 // --- STAGE 6: PRICING ---
 
-const Stage6Pricing: React.FC<{ courseId: string, currentCourse: Course, onComplete: () => void }> = ({ courseId, currentCourse, onComplete }) => {
+const Stage6Pricing: React.FC<{ courseId: string, currentCourse: Course, onComplete: () => void, isPublished?: boolean }> = ({ courseId, currentCourse, onComplete, isPublished }) => {
     const [isPublishing, setIsPublishing] = useState(false);
     const [settings, setSettings] = useState({ pricingModel: currentCourse.pricingModel || 'Free', price: currentCourse.price || 0, trialEnabled: currentCourse.trialEnabled || false, trialDays: currentCourse.trialDays || 7, maxEnrollments: currentCourse.maxEnrollments || 0, startDate: currentCourse.startDate || '', publicationStatus: currentCourse.status === 'Published' ? 'Published' : 'Draft' });
     const handleChange = (field: string, value: any) => { setSettings(prev => ({ ...prev, [field]: value })); };
-    const handleSave = async () => { setIsPublishing(true); try { await courseService.publishCourse(courseId, { pricingModel: settings.pricingModel as any, price: isNaN(settings.price) ? 0 : settings.price, trialEnabled: settings.trialEnabled, trialDays: isNaN(settings.trialDays) ? 0 : settings.trialDays, maxEnrollments: isNaN(settings.maxEnrollments) ? 0 : settings.maxEnrollments, startDate: settings.startDate, status: settings.publicationStatus as any }); onComplete(); } catch (error: any) { console.error("Failed to update course settings:", error); alert(`Failed to save settings: ${error?.message}`); } finally { setIsPublishing(false); } };
+    const handleSave = async () => { setIsPublishing(true); try { await courseService.publishCourse(courseId, { pricingModel: settings.pricingModel as any, price: isNaN(settings.price) ? 0 : settings.price, trialEnabled: settings.trialEnabled, trialDays: isNaN(settings.trialDays) ? 0 : settings.trialDays, maxEnrollments: isNaN(settings.maxEnrollments) ? 0 : settings.maxEnrollments, startDate: settings.startDate, status: settings.publicationStatus as any }); onComplete(); if(isPublished) alert("Settings updated."); } catch (error: any) { console.error("Failed to update course settings:", error); alert(`Failed to save settings: ${error?.message}`); } finally { setIsPublishing(false); } };
     return (
         <div className="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20">
              <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-8 rounded-[32px] text-white shadow-lg"><h3 className="font-bold text-2xl mb-2 flex items-center gap-2"><Globe size={24} className="text-yellow-400"/> Pricing & Publication</h3><p className="text-gray-300 opacity-90">Finalize how students access your course and set it live.</p></div>
@@ -1284,7 +1315,7 @@ const Stage6Pricing: React.FC<{ courseId: string, currentCourse: Course, onCompl
              <div className="bg-white p-8 rounded-[32px] border border-stone-100 shadow-sm space-y-6"><h4 className="font-bold text-gray-900 text-lg flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-stone-100 text-stone-600 text-xs flex items-center justify-center">2</span> Trial Period</h4><div className="flex items-center gap-4 p-4 rounded-xl bg-stone-50 border border-stone-100"><input type="checkbox" checked={settings.trialEnabled} onChange={(e) => handleChange('trialEnabled', e.target.checked)} className="w-5 h-5 text-gray-900 rounded focus:ring-gray-900 border-gray-300"/><div className="flex-1"><span className="block font-bold text-gray-900 text-sm">Offer a free trial period</span><span className="text-xs text-gray-500">Allow students to access content before billing.</span></div>{settings.trialEnabled && (<div className="flex items-center gap-2"><input type="number" value={settings.trialDays || ''} onChange={(e) => handleChange('trialDays', parseInt(e.target.value) || 0)} className="w-20 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 outline-none text-sm font-bold text-center"/><span className="text-sm font-medium text-gray-600">Days</span></div>)}</div></div>
              <div className="bg-white p-8 rounded-[32px] border border-stone-100 shadow-sm space-y-6"><h4 className="font-bold text-gray-900 text-lg flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-stone-100 text-stone-600 text-xs flex items-center justify-center">3</span> Enrollment Settings</h4><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Max Enrollments (Optional)</label><div className="relative"><Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="number" value={settings.maxEnrollments || ''} onChange={(e) => handleChange('maxEnrollments', parseInt(e.target.value) || 0)} placeholder="Unlimited" className="w-full pl-10 pr-4 py-3 rounded-xl bg-stone-50 text-gray-900 border-none outline-none focus:ring-2 focus:ring-yellow-400"/></div></div><div><label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Start Date (Optional)</label><div className="relative"><Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/><input type="date" value={settings.startDate} onChange={(e) => handleChange('startDate', e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl bg-stone-50 border-none outline-none focus:ring-2 focus:ring-yellow-400 text-gray-600"/></div></div></div></div>
              <div className="bg-white p-8 rounded-[32px] border border-stone-100 shadow-sm space-y-6"><h4 className="font-bold text-gray-900 text-lg flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-stone-100 text-stone-600 text-xs flex items-center justify-center">4</span> Publication Status</h4><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${settings.publicationStatus === 'Draft' ? 'border-gray-400 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}><input type="radio" name="publicationStatus" value="Draft" checked={settings.publicationStatus === 'Draft'} onChange={() => handleChange('publicationStatus', 'Draft')} className="w-5 h-5 text-gray-600 focus:ring-gray-500"/><div className="ml-3"><span className="block font-bold text-gray-900 flex items-center gap-2"><Lock size={14}/> Save as Draft</span><span className="text-xs text-gray-500">Only visible to you.</span></div></label><label className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${settings.publicationStatus === 'Published' ? 'border-green-500 bg-green-50' : 'border-gray-100 hover:border-gray-200'}`}><input type="radio" name="publicationStatus" value="Published" checked={settings.publicationStatus === 'Published'} onChange={() => handleChange('publicationStatus', 'Published')} className="w-5 h-5 text-green-600 focus:ring-green-500"/><div className="ml-3"><span className="block font-bold text-gray-900 flex items-center gap-2"><Globe size={14}/> Publish Now</span><span className="text-xs text-gray-500">Live for enrollment.</span></div></label></div></div>
-             <div className="flex justify-end pt-6"><button onClick={handleSave} disabled={isPublishing} className={`px-10 py-4 rounded-2xl font-bold text-lg transition-all flex items-center gap-2 shadow-lg ${settings.publicationStatus === 'Published' ? 'bg-green-500 hover:bg-green-600 text-white shadow-green-200' : 'bg-gray-900 hover:bg-black text-white'}`}>{isPublishing ? <Loader2 className="animate-spin" size={20}/> : (settings.publicationStatus === 'Published' ? <Globe size={20}/> : <Save size={20}/>)}{settings.publicationStatus === 'Published' ? 'Publish Course' : 'Save Draft'}</button></div>
+             <div className="flex justify-end pt-6"><button onClick={handleSave} disabled={isPublishing} className={`px-10 py-4 rounded-2xl font-bold text-lg transition-all flex items-center gap-2 shadow-lg ${settings.publicationStatus === 'Published' ? 'bg-green-500 hover:bg-green-600 text-white shadow-green-200' : 'bg-gray-900 hover:bg-black text-white'}`}>{isPublishing ? <Loader2 className="animate-spin" size={20}/> : (settings.publicationStatus === 'Published' ? <Globe size={20}/> : <Save size={20}/>)}{isPublished ? 'Update Settings' : (settings.publicationStatus === 'Published' ? 'Publish Course' : 'Save Draft')}</button></div>
         </div>
     );
 };
@@ -1334,6 +1365,12 @@ const CourseManager: React.FC<CourseManagerProps> = ({
     setActiveCourseId(course.id);
     setActiveCourseData(course);
     
+    // Check for Published Edit Mode (Stage 10)
+    if (course.creationStage === 10) {
+        setCurrentView('STAGE_1');
+        return;
+    }
+
     switch (course.creationStage) {
         case 1: setCurrentView('STAGE_2'); break;
         case 2: setCurrentView('STAGE_3'); break; 
@@ -1391,7 +1428,8 @@ const CourseManager: React.FC<CourseManagerProps> = ({
                               3: 'border-blue-400 bg-blue-50/10 hover:border-blue-500',
                               4: 'border-purple-400 bg-purple-50/10 hover:border-purple-500',
                               5: 'border-pink-400 bg-pink-50/10 hover:border-pink-500',
-                              6: 'border-green-400 bg-green-50/10 hover:border-green-500'
+                              6: 'border-green-400 bg-green-50/10 hover:border-green-500',
+                              10: 'border-green-500 bg-white hover:border-green-600'
                           };
                           
                           const displayLabel = {
@@ -1400,7 +1438,8 @@ const CourseManager: React.FC<CourseManagerProps> = ({
                             3: 'Step 3: Structure Set',
                             4: 'Step 4: Materials',
                             5: 'Step 5: Personas',
-                            6: 'Published'
+                            6: 'Ready to Publish',
+                            10: 'Live'
                           }[course.creationStage] || 'Draft';
 
                           return (
@@ -1411,7 +1450,7 @@ const CourseManager: React.FC<CourseManagerProps> = ({
                               >
                                   <div className="flex justify-between items-start mb-4">
                                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white border shadow-sm ${
-                                          course.creationStage === 6 ? 'text-green-600 border-green-200' : 'text-gray-600 border-gray-200'
+                                          course.creationStage === 10 ? 'text-green-600 border-green-200' : 'text-gray-600 border-gray-200'
                                       }`}>
                                           {displayLabel}
                                       </span>
@@ -1431,9 +1470,14 @@ const CourseManager: React.FC<CourseManagerProps> = ({
 
                                   <div className="mt-4 pt-4 border-t border-gray-100/50 flex items-center justify-between">
                                       <span className="text-xs font-bold text-gray-400">Last updated today</span>
-                                      {course.creationStage < 6 && (
+                                      {course.creationStage < 10 && (
                                           <span className="flex items-center gap-1 text-sm font-bold text-gray-900 group-hover:translate-x-1 transition-transform">
                                               Continue <ArrowRight size={16}/>
+                                          </span>
+                                      )}
+                                      {course.creationStage === 10 && (
+                                          <span className="flex items-center gap-1 text-sm font-bold text-green-600 group-hover:translate-x-1 transition-transform">
+                                              Edit Content <ArrowRight size={16}/>
                                           </span>
                                       )}
                                   </div>
@@ -1446,7 +1490,7 @@ const CourseManager: React.FC<CourseManagerProps> = ({
       );
   }
 
-  const StageWrapper = ({ title, stage, children, noPadding = false }: React.PropsWithChildren<{ title: string, stage: number, noPadding?: boolean }>) => (
+  const StageWrapper = ({ title, stage, children, noPadding = false, isPublished = false }: React.PropsWithChildren<{ title: string, stage: number, noPadding?: boolean, isPublished?: boolean }>) => (
       <div className={`bg-white/90 backdrop-blur-xl min-h-screen rounded-[40px] border border-white shadow-lg animate-fade-in relative flex flex-col ${noPadding ? '' : 'p-8'}`}>
           {!noPadding && (
             <div className="flex justify-between items-center mb-8 shrink-0">
@@ -1454,20 +1498,45 @@ const CourseManager: React.FC<CourseManagerProps> = ({
                     <button onClick={returnToDashboard} className="text-sm text-gray-500 hover:text-gray-900 mb-2 flex items-center gap-1 font-medium">
                         <ChevronDown size={16} className="rotate-90" /> Back to Manage Courses
                     </button>
-                    <h2 className="text-3xl font-bold text-gray-900">{title}</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">{isPublished ? `Editing: ${activeCourseData?.title}` : title}</h2>
                     
-                    <div className="flex gap-2 mt-4">
-                        {[1, 2, 3, 4, 5, 6].map(s => (
-                            <div 
-                                key={s} 
-                                className={`h-1.5 w-12 rounded-full transition-colors ${
-                                    s <= stage 
-                                    ? (stage === 6 && s === 6 ? 'bg-green-500' : 'bg-yellow-400') 
-                                    : 'bg-gray-200'
-                                }`} 
-                            />
-                        ))}
-                    </div>
+                    {!isPublished ? (
+                        <div className="flex gap-2 mt-4">
+                            {[1, 2, 3, 4, 5, 6].map(s => (
+                                <div 
+                                    key={s} 
+                                    className={`h-1.5 w-12 rounded-full transition-colors ${
+                                        s <= stage 
+                                        ? (stage === 6 && s === 6 ? 'bg-green-500' : 'bg-yellow-400') 
+                                        : 'bg-gray-200'
+                                    }`} 
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        // Published Navigation Menu
+                        <div className="flex gap-4 mt-4 overflow-x-auto no-scrollbar pb-2">
+                            {[
+                                { view: 'STAGE_1', label: 'Details' },
+                                { view: 'STAGE_3', label: 'Structure' },
+                                { view: 'STAGE_4', label: 'Materials' },
+                                { view: 'STAGE_5', label: 'Coaches' },
+                                { view: 'STAGE_6', label: 'Pricing' }
+                            ].map(item => (
+                                <button 
+                                    key={item.view}
+                                    onClick={() => setCurrentView(item.view as StageView)}
+                                    className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${
+                                        currentView === item.view 
+                                        ? 'bg-gray-900 text-white shadow-sm' 
+                                        : 'bg-stone-100 text-gray-600 hover:bg-stone-200'
+                                    }`}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
           )}
@@ -1477,19 +1546,23 @@ const CourseManager: React.FC<CourseManagerProps> = ({
       </div>
   );
 
+  const isPublishedEdit = activeCourseData?.creationStage === 10;
+
   return (
       <>
           {currentView === 'STAGE_1' && (
-              <StageWrapper title="Stage 1: Course Details" stage={1}>
+              <StageWrapper title="Stage 1: Course Details" stage={1} isPublished={isPublishedEdit}>
                   <Stage1Details 
                       availableMaterials={availableMaterials}
                       onComplete={returnToDashboard}
+                      courseId={isPublishedEdit ? activeCourseId : null}
+                      initialData={isPublishedEdit ? activeCourseData : null}
                   />
               </StageWrapper>
           )}
 
           {currentView === 'STAGE_2' && activeCourseId && (
-              <StageWrapper title="Stage 2: AI Course Architect" stage={2}>
+              <StageWrapper title="Stage 2: AI Course Architect" stage={2} isPublished={isPublishedEdit}>
                   <Stage2AIChat 
                       courseId={activeCourseId}
                       contextData={activeCourseData}
@@ -1500,46 +1573,50 @@ const CourseManager: React.FC<CourseManagerProps> = ({
           )}
 
           {currentView === 'STAGE_3' && activeCourseId && (
-               <StageWrapper title="Stage 3: Curriculum Structure" stage={3}>
+               <StageWrapper title="Stage 3: Curriculum Structure" stage={3} isPublished={isPublishedEdit}>
                    <Stage3Structure 
                        courseId={activeCourseId} 
                        onComplete={returnToDashboard} 
                        availableMaterials={availableMaterials}
+                       isPublished={isPublishedEdit}
                    />
                </StageWrapper>
           )}
 
           {currentView === 'STAGE_4' && activeCourseId && (
-              <StageWrapper title="Stage 4: Course Materials" stage={4}>
+              <StageWrapper title="Stage 4: Course Materials" stage={4} isPublished={isPublishedEdit}>
                   <Stage4Materials 
                       courseId={activeCourseId}
                       availableMaterials={availableMaterials}
                       onComplete={returnToDashboard}
+                      isPublished={isPublishedEdit}
                   />
               </StageWrapper>
           )}
 
           {currentView === 'STAGE_5' && activeCourseId && (
-              <StageWrapper title="Stage 5: Assign AI Coaches" stage={5}>
+              <StageWrapper title="Stage 5: Assign AI Coaches" stage={5} isPublished={isPublishedEdit}>
                   <Stage5Personas 
                       courseId={activeCourseId}
                       onComplete={returnToDashboard}
+                      isPublished={isPublishedEdit}
                   />
               </StageWrapper>
           )}
 
           {currentView === 'STAGE_6' && activeCourseId && activeCourseData && (
-              <StageWrapper title="Stage 6: Pricing & Publication" stage={6}>
+              <StageWrapper title="Stage 6: Pricing & Publication" stage={6} isPublished={isPublishedEdit}>
                   <Stage6Pricing 
                       courseId={activeCourseId}
                       currentCourse={activeCourseData}
                       onComplete={returnToDashboard}
+                      isPublished={isPublishedEdit}
                   />
               </StageWrapper>
           )}
 
           {currentView === 'OVERVIEW' && activeCourseData && (
-               <StageWrapper title="Course Overview" stage={6}>
+               <StageWrapper title="Course Overview" stage={6} isPublished={false}>
                    <div className="text-center py-20">
                        <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-600 rounded-full mb-6">
                            <CheckCircle size={40}/>

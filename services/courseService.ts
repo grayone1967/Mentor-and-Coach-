@@ -348,7 +348,7 @@ export const courseService = {
 
     const payload: any = {
         status: status,
-        creation_stage: 6,
+        creation_stage: 10, // Updated to 10 to indicate published/editable state
         pricing_model: dbModel,
         price: isNaN(Number(settings.price)) ? 0 : Number(settings.price),
         trial_enabled: settings.trialEnabled,
